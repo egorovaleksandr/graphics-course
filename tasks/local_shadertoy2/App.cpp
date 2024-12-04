@@ -1,10 +1,8 @@
 #include "App.hpp"
-
-#include <etna/PipelineManager.hpp>
-#include <etna/RenderTargetStates.hpp>
 #include <etna/Etna.hpp>
 #include <etna/GlobalContext.hpp>
-
+#include <etna/PipelineManager.hpp>
+#include <etna/RenderTargetStates.hpp>
 #include "stb_image.h"
 
 
@@ -15,7 +13,6 @@ App::App()
 {
   {
     auto glfwInstExts = windowing.getRequiredVulkanInstanceExtensions();
-
     std::vector<const char*> instanceExtensions{glfwInstExts.begin(), glfwInstExts.end()};
     std::vector<const char*> deviceExtensions{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
     etna::initialize(etna::InitParams{
@@ -34,6 +31,7 @@ App::App()
 
   {
     auto surface = osWindow->createVkSurface(etna::get_context().getInstance());
+
     vkWindow = etna::get_context().createWindow(etna::Window::CreateInfo{
       .surface = std::move(surface),
     });
@@ -47,7 +45,7 @@ App::App()
   }
 
   commandManager = etna::get_context().createPerFrameCmdMgr();
-  
+
   etna::create_program(
     "procedural_texture", 
     {LOCAL_SHADERTOY_2_SHADERS_ROOT "procedural_texture.comp.spv"});
@@ -127,25 +125,33 @@ void App::run()
 void App::drawFrame()
 {
   auto currentCmdBuf = commandManager->acquireNext();
+
   etna::begin_frame();
+
   auto nextSwapchainImage = vkWindow->acquireNext();
+
   if (nextSwapchainImage)
   {
     auto [backbuffer, backbufferView, backbufferAvailableSem] = *nextSwapchainImage;
 
     ETNA_CHECK_VK_RESULT(currentCmdBuf.begin(vk::CommandBufferBeginInfo{}));
     {
-      etna::set_state(
-        currentCmdBuf,
-        backbuffer,
-        vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-        vk::AccessFlagBits2::eColorAttachmentWrite,
-        vk::ImageLayout::eColorAttachmentOptimal,
-        vk::ImageAspectFlagBits::eColor);
+      etna::set_state(currentCmdBuf, backbuffer, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite, vk::ImageLayout::eColorAttachmentOptimal, vk::ImageAspectFlagBits::eColor);
       etna::flush_barriers(currentCmdBuf);
 
       float time =
         std::chrono::duration<float>(std::chrono::system_clock::now() - timeStart).count();
+
+
+      etna::set_state(
+        currentCmdBuf,
+        textureImage.get(),
+        vk::PipelineStageFlagBits2::eComputeShader,
+        vk::AccessFlagBits2::eShaderStorageWrite,
+        vk::ImageLayout::eGeneral,
+        vk::ImageAspectFlagBits::eColor);
+
+      etna::flush_barriers(currentCmdBuf);
 
       {
         auto computeInfo = etna::get_shader_program("procedural_texture");
@@ -174,11 +180,8 @@ void App::drawFrame()
         };
         currentCmdBuf.pushConstants( texturePipeline.getVkPipelineLayout(), vk::ShaderStageFlagBits::eCompute, 0, sizeof(param), &param);
 
-        etna::flush_barriers(currentCmdBuf);
-
         currentCmdBuf.dispatch(resolution.x / 16, resolution.y / 16, 1);
       }
-
 
       etna::set_state(
         currentCmdBuf,
@@ -242,13 +245,11 @@ void App::drawFrame()
       commandManager->submit(std::move(currentCmdBuf), std::move(backbufferAvailableSem));
 
     const bool presented = vkWindow->present(std::move(renderingDone), backbufferView);
-
     if (!presented)
       nextSwapchainImage = std::nullopt;
   }
 
   etna::end_frame();
-
   if (!nextSwapchainImage && osWindow->getResolution() != glm::uvec2{0, 0})
   {
     auto [w, h] = vkWindow->recreateSwapchain(etna::Window::DesiredProperties{
