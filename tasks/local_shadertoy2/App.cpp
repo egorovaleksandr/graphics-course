@@ -59,7 +59,7 @@ App::App()
     .format = vk::Format::eR8G8B8A8Unorm,
     .imageUsage = vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage});
 
-  textureSampler = etna::Sampler::Sampler(etna::Sampler::CreateInfo{
+  textureSampler = etna::Sampler(etna::Sampler::CreateInfo{
     .addressMode = vk::SamplerAddressMode::eRepeat, .name = "textureSampler"});
 
   int width, height, channels;
@@ -73,7 +73,7 @@ App::App()
     .imageUsage = vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage |
       vk::ImageUsageFlagBits::eTransferDst});
 
-  fileTextureSampler = etna::Sampler::Sampler(etna::Sampler::CreateInfo{
+  fileTextureSampler = etna::Sampler(etna::Sampler::CreateInfo{
     .addressMode = vk::SamplerAddressMode::eRepeat, .name = "fileTextureSampler"});
 
   transferHelper =
